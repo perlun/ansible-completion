@@ -33,11 +33,11 @@ _ansible_complete_host() {
     # search in the ansible.cfg for a hostfile entry
     if [ -z "$inventory_file" ]; then
         [ -f /etc/ansible/ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile|inventory)/{ print $3 }' /etc/ansible/ansible.cfg)
+            '/^(hostfile =|inventory =)/{ print $3 }' /etc/ansible/ansible.cfg)
         [ -f ${HOME}/.ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile|inventory)/{ print $3 }' ${HOME}/.ansible.cfg)
+            '/^(hostfile =|inventory =)/{ print $3 }' ${HOME}/.ansible.cfg)
         [ -f ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile|inventory)/{ print $3 }' ansible.cfg)
+            '/^(hostfile =|inventory =)/{ print $3 }' ansible.cfg)
     fi
 
     # if the $inventory_file value is a variable (e.g $HOME), we evaluate that
@@ -51,13 +51,7 @@ _ansible_complete_host() {
     local hosts=$(ansible ${inventory_file:+-i "$inventory_file"} all --list-hosts 2> /dev/null \
         && [ -e "$inventory_file" ] \
         && [ -d "$inventory_file" -o ! -x "$inventory_file" ] \
-        && grep $grep_opts '\[.*\]' "$inventory_file" | tr -d [] | cut -d: -f1)
-
-    # list the hostnames with ansible command line and complete the list
-    # by searching the group labels in the inventory file (if we have it)
-    hosts="$hosts
-    $(echo "$hosts" | sed -e 's/\([^[:space:]]\)/\&\1/p' -e 's/&/!/p' )"
-    # add the !, & notation to the hostname
+        && grep $grep_opts '\[.*\]' $inventory_file/*_hosts | tr -d [] | cut -d: -f1)
 
     if [ "$first_words" != "$last_word" ]; then
         COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts" -- "$last_word" ) )
