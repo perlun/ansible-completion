@@ -50,7 +50,7 @@ _ansible_complete_host() {
     [ -d "$inventory_file" ] && grep_opts="$grep_opts -hR"
     local hosts=$(ansible ${inventory_file:+-i "$inventory_file"} all --list-hosts 2> /dev/null \
         && [ -e "$inventory_file" ] \
-        && [ -d "$inventory_file" -o ! -x "$inventory_file" ] \
+        && [ -d "$inventory_file" ] \
         && grep $grep_opts '\[.*\]' $inventory_file/*_hosts | tr -d [] | cut -d: -f1)
 
     if [ "$first_words" != "$last_word" ]; then
