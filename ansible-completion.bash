@@ -19,44 +19,26 @@ _ansible() {
 
 complete -o default -F _ansible ansible
 
-# Compute completion with the available hosts,
-# if a inventory file is specified in
-# the command line the completion will use it
+# Compute completion with the available hosts, using the inventory config from
+# ansible.cfg
+#
+# Note: this no longer supports invocations where the inventory is overridden
+# (ansible -i <file>)
 _ansible_complete_host() {
     local current_word=$1
     local first_words=${current_word%:*}
     local last_word=${current_word##*:}
-    local inventory_file=$(_ansible_get_inventory_file)
     local grep_opts="-o"
 
-    # if $inventory_file is empty and a ansible.cfg file exist
-    # search in the ansible.cfg for a hostfile entry
-    if [ -z "$inventory_file" ]; then
-        [ -f /etc/ansible/ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile[[:space:]]*=[[:space:]]*|inventory[[:space:]]*=[[:space:]]*)/{ print $3 }' /etc/ansible/ansible.cfg)
-        [ -f ${HOME}/.ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile[[:space:]]*=|inventory[[:space:]]*=[[:space:]]*)/{ print $3 }' ${HOME}/.ansible.cfg)
-        [ -f ansible.cfg ] && inventory_file=$(awk \
-            '/^(hostfile[[:space:]]*=[[:space:]]*|inventory[[:space:]]*=[[:space:]]*)/{ print $3 }' ansible.cfg)
-    fi
-
-    # if the $inventory_file value is a variable (e.g $HOME), we evaluate that
-    # variable to get the value.
-    if [[ "$inventory_file" == \$* ]]; then
-        inventory_file=$(eval echo $inventory_file)
-    fi
-
-    # if inventory_file points to a directory, search recursively
-    [ -d "$inventory_file" ] && grep_opts="$grep_opts -hR"
-    local hosts=$(ansible ${inventory_file:+-i "$inventory_file"} all --list-hosts 2> /dev/null \
-        && [ -e "$inventory_file" ] \
-        && [ -d "$inventory_file" ] \
-        && grep $grep_opts '\[.*\]' $inventory_file/*_hosts | tr -d [] | cut -d: -f1)
+    # The 'tail' call is there to get rid of the first 'hosts (xx)' line in the
+    # output.
+    local hosts_and_groups=$(ansible all --list-hosts 2> /dev/null | tail +2 &&
+        ansible-inventory --list | jq -r "keys | .[]")
 
     if [ "$first_words" != "$last_word" ]; then
-        COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts" -- "$last_word" ) )
+        COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts_and_groups" -- "$last_word" ) )
     else
-        COMPREPLY=( $( compgen -W "$hosts" -- "$last_word" ) )
+        COMPREPLY=( $( compgen -W "$hosts_and_groups" -- "$last_word" ) )
     fi
 }
 
