@@ -40,24 +40,27 @@ _ansible_complete_host() {
             '/^(hostfile[[:space:]]*=[[:space:]]*|inventory[[:space:]]*=[[:space:]]*)/{ print $3 }' ansible.cfg)
     fi
 
-    # if the $inventory_file value is a variable (e.g $HOME), we evaluate that
-    # variable to get the value.
-    if [[ "$inventory_file" == \$* ]]; then
-        inventory_file=$(eval echo $inventory_file)
-    fi
+    IFS=',' read -ra INVENTORY_FILE_ITEM <<< "$inventory_file"
+    for file in "${INVENTORY_FILE_ITEM[@]}"; do
+        # if the $inventory_file value is a variable (e.g $HOME), we evaluate that
+        # variable to get the value.
+        if [[ "$file" == \$* ]]; then
+            inventory_file=$(eval echo $file)
+        fi
 
-    # if inventory_file points to a directory, search recursively
-    [ -d "$inventory_file" ] && grep_opts="$grep_opts -hR"
-    local hosts=$(ansible ${inventory_file:+-i "$inventory_file"} all --list-hosts 2> /dev/null \
-        && [ -e "$inventory_file" ] \
-        && [ -d "$inventory_file" ] \
-        && grep $grep_opts '\[.*\]' $inventory_file/*_hosts | tr -d [] | cut -d: -f1)
+        # if inventory_file points to a directory, search recursively
+        [ -d "$file" ] && grep_opts="$grep_opts -hR"
+        local hosts=$(ansible ${file:+-i "$file"} all --list-hosts 2> /dev/null \
+            && [ -e "$file" ] \
+            && [ -d "$file" ] \
+            && grep $grep_opts '\[.*\]' $file/*_hosts | tr -d [] | cut -d: -f1)
 
-    if [ "$first_words" != "$last_word" ]; then
-        COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts" -- "$last_word" ) )
-    else
-        COMPREPLY=( $( compgen -W "$hosts" -- "$last_word" ) )
-    fi
+        if [ "$first_words" != "$last_word" ]; then
+            COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts" -- "$last_word" ) )
+        else
+            COMPREPLY=( $( compgen -W "$hosts" -- "$last_word" ) )
+        fi
+    done
 }
 
 # Look inside COMP_WORDS to find a value for the inventory-file argument
