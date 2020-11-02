@@ -20,7 +20,8 @@ _ansible() {
 complete -o default -F _ansible ansible
 
 # Compute completion with the available hosts, using the inventory config from
-# ansible.cfg
+# ansible.cfg. This method presumes that ansible.cfg is located inside the
+# directory where you have your Ansible roles and playbooks.
 #
 # Note: this no longer supports invocations where the inventory is overridden
 # (ansible -i <file>)
@@ -30,10 +31,21 @@ _ansible_complete_host() {
     local last_word=${current_word##*:}
     local grep_opts="-o"
 
-    # The 'tail' call is there to get rid of the first 'hosts (xx)' line in the
-    # output.
-    local hosts_and_groups=$(ansible all --list-hosts 2> /dev/null | tail +2 &&
-        ansible-inventory --list | jq -r "keys | .[]")
+    # To support multiple ansible projects, we use the directory name to
+    # determine the location of the cache.
+    local hashed_folder_name=$(pwd | md5sum | awk '{ print $1 }')
+
+    if [[ ! -f "$HOME/.cache/ansible-completion/$hashed_folder_name/ansible_inventory_content.txt" ]]; then
+        mkdir -p $HOME/.cache/ansible-completion/$hashed_folder_name
+
+        # The 'tail' call is there to get rid of the first 'hosts (xx)' line in
+        # the output. 'awk' call is there to trim leading and trailing
+        # whitespace from the output.
+        ansible all --list-hosts 2> /dev/null | tail +2 | awk '{$1=$1};1' > "$HOME/.cache/ansible-completion/$hashed_folder_name/ansible_inventory_content.txt"
+        ansible-inventory --list | jq -r "keys | .[]" >> "$HOME/.cache/ansible-completion/$hashed_folder_name/ansible_inventory_content.txt"
+    fi
+
+    local hosts_and_groups=$(cat $HOME/.cache/ansible-completion/$hashed_folder_name/ansible_inventory_content.txt)
 
     if [ "$first_words" != "$last_word" ]; then
         COMPREPLY=( $( compgen -P "$first_words:" -W "$hosts_and_groups" -- "$last_word" ) )
